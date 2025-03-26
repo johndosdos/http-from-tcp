@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -13,6 +14,7 @@ func main() {
 	defer file.Close()
 
 	buf := make([]byte, 8)
+	var strBuf strings.Builder
 
 	for {
 		_, err = file.Read(buf)
@@ -23,6 +25,14 @@ func main() {
 			handleError(err, "error reading from file into buffer")
 		}
 
-		fmt.Printf("read: %s\n", buf)
+		// fmt.Printf("read: %s\n", buf)
+		_, err := strBuf.Write(buf)
+		handleError(err, "error writing to string buffer")
+	}
+
+	// processedStr := strings.Split(strBuf.String(), "\n")
+	lines := strings.SplitSeq(strBuf.String(), "\n")
+	for line := range lines {
+		fmt.Printf("read: %s\n", line)
 	}
 }
