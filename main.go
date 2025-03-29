@@ -13,11 +13,11 @@ func main() {
 	handleError(err, "error opening file")
 	defer file.Close()
 
-	buf := make([]byte, 8)
-	var strBuf strings.Builder
+	buffer := make([]byte, 8)
+	var stringBuffer strings.Builder
 
 	for {
-		_, err = file.Read(buf)
+		bytesRead, err := file.Read(buffer)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -25,13 +25,15 @@ func main() {
 			handleError(err, "error reading from file into buffer")
 		}
 
-		// fmt.Printf("read: %s\n", buf)
-		_, err := strBuf.Write(buf)
-		handleError(err, "error writing to string buffer")
+		// file.Read() returns (0, io.EOF) at EOF.
+		if bytesRead > 0 {
+			_, err := stringBuffer.Write(buffer[:bytesRead])
+			handleError(err, "error writing string into buffer")
+		}
 	}
 
-	// processedStr := strings.Split(strBuf.String(), "\n")
-	lines := strings.SplitSeq(strBuf.String(), "\n")
+	lines := strings.SplitSeq(stringBuffer.String(), "\n")
+
 	for line := range lines {
 		fmt.Printf("read: %s\n", line)
 	}
