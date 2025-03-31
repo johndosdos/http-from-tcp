@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -21,13 +22,15 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				handleError(err, "error reading from file into buffer")
+				fmt.Printf("error reading from file into buffer: %v\n", err)
 			}
 
 			// file.Read() returns (0, io.EOF) at EOF.
 			if bytesRead > 0 {
 				_, err := stringBuffer.Write(buffer[:bytesRead])
-				handleError(err, "error writing string into buffer")
+				if err != nil {
+					fmt.Printf("error writing string into buffer: %v\n", err)
+				}
 			}
 		}
 
@@ -39,4 +42,5 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 	}()
 
 	return msgChannel
+
 }
