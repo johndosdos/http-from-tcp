@@ -52,7 +52,7 @@ func parseRequestLine(requestData []byte) (*RequestLine, error) {
 	*/
 
 	const NUM_PARTS_REQ_LINE int = 3
-	const HTTP_VERSION string = "1.1"
+	const HTTP_VERSION_DIGIT string = "1.1"
 
 	// There are four parts to an HTTP Message. But since we're splitting
 	// at CRLF, then there are three parts.
@@ -71,23 +71,35 @@ func parseRequestLine(requestData []byte) (*RequestLine, error) {
 
 	// extract the digit part from HTTP-version
 	reqHTTPVersion := bytes.Split(requestLine[2], []byte("/"))
-	httpVersionDigit := reqHTTPVersion[1]
+	reqVersionDigit := string(reqHTTPVersion[1])
 
 	// Verify request-line method to have uppercase chars.
-	for _, char := range reqMethod {
-		if !unicode.IsUpper(char) {
-			return nil, fmt.Errorf("invalid HTTP method: received: '%s', expected: '%s'", reqMethod, strings.ToUpper(reqMethod))
-		}
+	if !verifyMethod(reqMethod) {
+		return nil, fmt.Errorf("invalid HTTP method: received: '%s', expected: '%s'", reqMethod, strings.ToUpper(reqMethod))
 	}
 
 	// Verify HTTP-version. We only allow HTTP/1.1.
-	if string(httpVersionDigit) != HTTP_VERSION {
-		return nil, fmt.Errorf("invalid request-line HTTP-version; should be %s: %v", HTTP_VERSION, reqHTTPVersion)
+	if !verifyVersion(HTTP_VERSION_DIGIT, reqVersionDigit) {
+		return nil, fmt.Errorf("invalid HTTP version; received: '%s', expected: '%s'", reqVersionDigit, HTTP_VERSION_DIGIT)
 	}
 
 	return &RequestLine{
 		Method:        reqMethod,
 		RequestTarget: reqTarget,
-		HttpVersion:   string(httpVersionDigit),
+		HttpVersion:   reqVersionDigit,
 	}, nil
+}
+
+func verifyMethod(method string) bool {
+	for _, char := range method {
+		if !unicode.IsUpper(char) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func verifyVersion(ref, digit string) bool {
+	return digit == ref
 }
