@@ -10,6 +10,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
+	State       State
 }
 
 type RequestLine struct {
@@ -17,6 +18,13 @@ type RequestLine struct {
 	RequestTarget string
 	HttpVersion   string
 }
+
+type State int
+
+const (
+	initialized = iota
+	done
+)
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	requestData, err := io.ReadAll(reader)
