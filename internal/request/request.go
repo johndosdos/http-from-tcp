@@ -100,6 +100,6 @@ func verifyMethod(method string) bool {
 	return true
 }
 
-func verifyVersion(ref, digit string) bool {
-	return digit == ref
+func verifyVersion(ref, actual string) bool {
+	return actual == ref
 }
