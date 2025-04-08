@@ -26,23 +26,27 @@ const (
 	done
 )
 
+const NUM_PARTS_REQ_LINE int = 3
+const HTTP_VERSION_DIGIT string = "1.1"
+
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	requestData, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read contents to memory: %w", err)
 	}
 
-	requestLine, err := parseRequestLine(requestData)
+	requestLine, bytesRead, err := parseRequestLine(requestData)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse request-line: %w", err)
 	}
 
 	return &Request{
 		RequestLine: *requestLine,
+		State:       initialized,
 	}, nil
 }
 
-func parseRequestLine(requestData []byte) (*RequestLine, error) {
+func parseRequestLine(requestData []byte) (*RequestLine, int, error) {
 	/*
 		HTTP-message = start-line CRLF			<--- either request-line or status-line
 						*( field-line CRLF )	<--- header/s
@@ -59,48 +63,49 @@ func parseRequestLine(requestData []byte) (*RequestLine, error) {
 				HTTP-version	<--- HTTP-name "/" DIGIT "." DIGIT (e.g., HTTP/1.1)
 	*/
 
-	const NUM_PARTS_REQ_LINE int = 3
-	const HTTP_VERSION_DIGIT string = "1.1"
+	// CRLF is 2 bytes, \r and \n.
+	crlf := []byte("\r\n")
+	totalBytesRead := 0
 
-	// There are four parts to an HTTP Message. But since we're splitting
-	// at CRLF, then there are three parts.
-
-	// Trim excess whitespace.
-	httpMsgParts := bytes.Split(bytes.TrimSpace(requestData), []byte("\r\n"))
-
-	// Verify the parts of the request-line.
-	requestLine := bytes.Split(httpMsgParts[0], []byte(" "))
-	if len(requestLine) != NUM_PARTS_REQ_LINE {
-		return nil, fmt.Errorf("invalid HTTP message request-line: %d", len(requestLine))
+	// If crlf is not found in the request data, i.e., incomplete data.
+	bytesRead := bytes.Index(requestData, crlf)
+	if bytesRead == -1 {
+		return nil, 0, nil
 	}
 
-	reqMethod := string(requestLine[0])
-	reqTarget := string(requestLine[1])
+	totalBytesRead += bytesRead + len(crlf)
+
+	// Extract request-line from the HTTP message.
+	requestLine := requestData[:bytesRead]
+	parts := bytes.Split(requestLine, []byte(" "))
+	reqMethod := parts[0]
+	reqTarget := parts[1]
+	reqHTTPVersion := parts[2]
 
 	// extract the digit part from HTTP-version
-	reqHTTPVersion := bytes.Split(requestLine[2], []byte("/"))
-	reqVersionDigit := string(reqHTTPVersion[1])
+	httpVerParts := bytes.Split(reqHTTPVersion, []byte("/"))
+	httpVerDigit := string(httpVerParts[1])
 
 	// Verify request-line method to have uppercase chars.
 	if !verifyMethod(reqMethod) {
-		return nil, fmt.Errorf("invalid HTTP method: received: '%s', expected: '%s'", reqMethod, strings.ToUpper(reqMethod))
+		return nil, bytesRead, fmt.Errorf("invalid HTTP method: received: '%s', expected: '%s'", reqMethod, strings.ToUpper(string(reqMethod)))
 	}
 
 	// Verify HTTP-version. We only allow HTTP/1.1.
-	if !verifyVersion(HTTP_VERSION_DIGIT, reqVersionDigit) {
-		return nil, fmt.Errorf("invalid HTTP version; received: '%s', expected: '%s'", reqVersionDigit, HTTP_VERSION_DIGIT)
+	if !verifyVersion(HTTP_VERSION_DIGIT, httpVerDigit) {
+		return nil, bytesRead, fmt.Errorf("invalid HTTP version; received: '%s', expected: '%s'", httpVerDigit, HTTP_VERSION_DIGIT)
 	}
 
 	return &RequestLine{
-		Method:        reqMethod,
-		RequestTarget: reqTarget,
-		HttpVersion:   reqVersionDigit,
-	}, nil
+		Method:        string(reqMethod),
+		RequestTarget: string(reqTarget),
+		HttpVersion:   httpVerDigit,
+	}, totalBytesRead, nil
 }
 
-func verifyMethod(method string) bool {
+func verifyMethod(method []byte) bool {
 	for _, char := range method {
-		if !unicode.IsUpper(char) {
+		if !unicode.IsUpper(rune(char)) {
 			return false
 		}
 	}
