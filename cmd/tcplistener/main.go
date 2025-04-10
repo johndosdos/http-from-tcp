@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"github.com/johndosdos/http-from-tcp/internal/request"
 )
 
 func main() {
@@ -26,10 +28,16 @@ func main() {
 
 		fmt.Printf("CONNECTION ACCEPTED...\n\n")
 
-		lineChannel := getLinesChannel(conn)
-		for line := range lineChannel {
-			fmt.Printf("read: %s\n", line)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatalf("error processing connection: %v", err)
 		}
+
+		fmt.Printf(`Request line:
+- Method: %v
+- Target: %v
+- Version: %v
+`, req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
 
 		fmt.Printf("\n...CONNECTION CLOSED\n")
 	}
