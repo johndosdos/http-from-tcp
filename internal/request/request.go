@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -22,28 +23,90 @@ type RequestLine struct {
 type State int
 
 const (
-	initialized = iota
-	done
+	INITIALIZED = iota
+	DONE
 )
 
 const NUM_PARTS_REQ_LINE int = 3
 const HTTP_VERSION_DIGIT string = "1.1"
 
+const BUFFER_SIZE int = 8
+
+func (r *Request) Parse(data []byte) (int, error) {
+	switch r.State {
+	case INITIALIZED:
+		requestLine, bytesRead, err := parseRequestLine(data)
+		if err != nil {
+			return 0, err
+		}
+
+		if bytesRead == 0 {
+			return 0, nil
+		}
+
+		r.RequestLine = *requestLine
+		r.State = DONE
+		return bytesRead, nil
+	case DONE:
+		return 0, errors.New("error: trying to read data in 'done' state")
+	}
+
+	return 0, fmt.Errorf("error: parser encountered unknown state: %v", r.State)
+}
+
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	requestData, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read contents to memory: %w", err)
+	// Track how many bytes have we read from the io.Reader (request data) into
+	// the buffer.
+	bytesInBuffer := 0
+
+	request := &Request{
+		State: INITIALIZED,
 	}
 
-	requestLine, bytesRead, err := parseRequestLine(requestData)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse request-line: %w", err)
+	buffer := make([]byte, BUFFER_SIZE)
+
+	for request.State != DONE {
+		if bytesInBuffer == cap(buffer) {
+			newBuffer := make([]byte, cap(buffer)*2)
+			copy(newBuffer, buffer[:bytesInBuffer])
+			buffer = newBuffer
+		}
+
+		bytesRead, err := reader.Read(buffer[bytesInBuffer:])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+		}
+
+		bytesInBuffer += bytesRead
+
+		bytesParsed, err := request.Parse(buffer[:bytesInBuffer])
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse request data: %w", err)
+		}
+
+		copy(buffer[0:], buffer[bytesParsed:bytesInBuffer])
+		bytesInBuffer -= bytesParsed
 	}
 
-	return &Request{
-		RequestLine: *requestLine,
-		State:       initialized,
-	}, nil
+	return request, nil
+	/*
+		 	requestData, err := io.ReadAll(reader)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read contents to memory: %w", err)
+			}
+
+			requestLine, bytesRead, err := parseRequestLine(requestData)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse request-line: %w", err)
+			}
+
+			return &Request{
+				RequestLine: *requestLine,
+				State:       initialized,
+			}, nil
+	*/
 }
 
 func parseRequestLine(requestData []byte) (*RequestLine, int, error) {
