@@ -14,7 +14,7 @@ func TestHeaders(t *testing.T) {
 	bytesParsed, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, bytesParsed)
 	assert.False(t, done)
 
@@ -24,7 +24,7 @@ func TestHeaders(t *testing.T) {
 	_, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.False(t, done)
 
 	// Test: valid done
@@ -33,6 +33,23 @@ func TestHeaders(t *testing.T) {
 	_, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	assert.True(t, done)
+
+	// Test: lowercase header names
+	headers = NewHeaders()
+	data = []byte("Host: localhost:42069\r\n\r\n")
+	_, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.False(t, done)
+
+	// Test: invalid header name
+	headers = NewHeaders()
+	data = []byte("H©st: localhost:42069\r\n\r\n")
+	_, done, err = headers.Parse(data)
+	require.NotNil(t, headers)
+	require.Error(t, err)
+	assert.False(t, done)
 
 	// Test: invalid header spacing
 	headers = NewHeaders()

@@ -59,18 +59,22 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 
 	fieldName := data[:colonSep]
 
+	// Check field name for invalid chars. Return an error if so.
+	// Reject if it contains whitespace between field name and colon.
+	if ok := isHeaderNameValid(fieldName); !ok {
+		return 0, false, errors.New("bad request: invalid field name")
+	}
+
 	// Increment colonSep by 1. We want to slice the data from right after the colon
 	// until bytesRead (which is at CRLF).
 	fieldValue := data[colonSep+1 : bytesRead]
 
-	// Reject if it contains whitespace between field name and colon.
-	n := bytes.Index(fieldName, []byte(" "))
-	if n != -1 {
-		return 0, false, errors.New("bad request: invalid field name")
-	}
-
 	// Trim whitespaces at field value since they're optional.
 	fieldValue = bytes.TrimSpace(fieldValue)
+
+	// Covert header name and value chars to lowercase.
+	fieldName = bytes.ToLower(fieldName)
+	fieldValue = bytes.ToLower(fieldValue)
 
 	h[string(fieldName)] = string(fieldValue)
 
@@ -81,4 +85,24 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 
 func NewHeaders() Headers {
 	return Headers{}
+}
+
+func isHeaderNameValid(headerName []byte) bool {
+	const allowed = "!#$%&'*+-.^_`|~"
+	var ok bool
+
+	for _, char := range headerName {
+		if ('A' <= char && char <= 'Z') ||
+			('a' <= char && char <= 'z') ||
+			('0' <= char && char <= '9') {
+			ok = true
+		} else if bytes.ContainsRune([]byte(allowed), rune(char)) {
+			ok = true
+		} else {
+			ok = false
+			break
+		}
+	}
+
+	return ok
 }
