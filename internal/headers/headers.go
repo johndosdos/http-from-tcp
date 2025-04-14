@@ -3,6 +3,7 @@ package headers
 import (
 	"bytes"
 	"errors"
+	"fmt"
 )
 
 type Headers map[string]string
@@ -76,7 +77,14 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	fieldName = bytes.ToLower(fieldName)
 	fieldValue = bytes.ToLower(fieldValue)
 
-	h[string(fieldName)] = string(fieldValue)
+	// Check if header name already exists in the map.
+	// Join multiple header values if header name already exists.
+	val, ok := h[string(fieldName)]
+	if ok {
+		h[string(fieldName)] = fmt.Sprintf("%s, %s", val, fieldValue)
+	} else {
+		h[string(fieldName)] = string(fieldValue)
+	}
 
 	totalBytesRead = bytesRead + len(crlf)
 

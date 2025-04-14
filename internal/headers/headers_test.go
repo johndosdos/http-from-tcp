@@ -58,4 +58,19 @@ func TestHeaders(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 0, bytesParsed)
 	assert.False(t, done)
+
+	// Test: multiple header name values
+	headers = NewHeaders()
+	data = []byte("Host: localhost:42069\r\n\r\n")
+	_, done, err = headers.Parse(data)
+	require.NotNil(t, headers)
+	require.NoError(t, err)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.False(t, done)
+
+	data = []byte("Host: localhost:8080\r\n\r\n")
+	_, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	assert.Equal(t, "localhost:42069, localhost:8080", headers["host"])
+	assert.False(t, done)
 }
