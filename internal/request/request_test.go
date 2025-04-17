@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/johndosdos/http-from-tcp/internal/headers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,4 +58,80 @@ func TestRequest(t *testing.T) {
 	assert.Equal(t, "GET", r.RequestLine.Method)
 	assert.Equal(t, "/coffee", r.RequestLine.RequestTarget)
 	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
+}
+
+func TestRequestFromReader_Headers(t *testing.T) {
+	// Test: standard headers
+	reader := &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, "localhost:42069", req.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", req.Headers["user-agent"])
+	assert.Equal(t, "*/*", req.Headers["accept"])
+
+	// Test: empty headers
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, headers.Headers{}, req.Headers)
+
+	// Test: malformed headers
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nHost localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.Error(t, err)
+	require.Nil(t, req)
+
+	// Test: duplicate headers
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nHost: localhost:42069\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.Error(t, err)
+	require.Nil(t, req)
+	// assert.Equal(t, headers.Headers{}, req.Headers)
+
+	// Test: case-insensitive headers
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nHOST: localhost:42069\r\nUSER-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, "localhost:42069", req.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", req.Headers["user-agent"])
+	assert.Equal(t, "*/*", req.Headers["accept"])
+
+	// Test: missing end of headers
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, "localhost:42069", req.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", req.Headers["user-agent"])
+	assert.Equal(t, "*/*", req.Headers["accept"])
+
+	// Test: invalid header characters
+	reader = &chunkReader{
+		data:            "GET /coffee HTTP/1.1\r\nH()st: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.Error(t, err)
+	require.Nil(t, req)
 }

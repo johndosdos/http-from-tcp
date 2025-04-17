@@ -7,10 +7,13 @@ import (
 	"io"
 	"strings"
 	"unicode"
+
+	"github.com/johndosdos/http-from-tcp/internal/headers"
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	State       State
 }
 
@@ -25,6 +28,7 @@ type State int
 const (
 	INITIALIZED = iota
 	DONE
+	REQUEST_STATE_PARSING_HEADERS
 )
 
 const NUM_PARTS_REQ_LINE int = 3
@@ -45,8 +49,32 @@ func (r *Request) Parse(data []byte) (int, error) {
 		}
 
 		r.RequestLine = *requestLine
-		r.State = DONE
+		r.State = REQUEST_STATE_PARSING_HEADERS
 		return bytesRead, nil
+	case REQUEST_STATE_PARSING_HEADERS:
+		totalBytesParsed := 0
+		isHeaderDone := false
+
+		if r.Headers == nil {
+			r.Headers = headers.NewHeaders()
+		}
+
+		for !isHeaderDone {
+			bytesParsed, done, err := r.Headers.Parse(data[totalBytesParsed:])
+			if err != nil {
+				return 0, err
+			}
+
+			if bytesParsed == 0 && !done {
+				return totalBytesParsed, err
+			}
+
+			isHeaderDone = done
+			totalBytesParsed += bytesParsed
+		}
+
+		r.State = DONE
+		return totalBytesParsed, nil
 	case DONE:
 		return 0, errors.New("error: trying to read data in 'done' state")
 	}
