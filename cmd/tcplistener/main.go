@@ -39,6 +39,11 @@ func main() {
 - Version: %v
 `, req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
 
+		fmt.Println("Headers:")
+		for key, value := range req.Headers {
+			fmt.Printf("- %v: %v\n", key, value)
+		}
+
 		fmt.Printf("\n...CONNECTION CLOSED\n")
 	}
 	/* 	file, err := os.Open("messages.txt")
