@@ -61,16 +61,16 @@ func TestHeaders(t *testing.T) {
 
 	// Test: multiple header name values
 	headers = NewHeaders()
-	data = []byte("Host: localhost:42069\r\n\r\n")
+	data = []byte("Accept: text/html\r\n\r\n")
 	_, done, err = headers.Parse(data)
 	require.NotNil(t, headers)
 	require.NoError(t, err)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "text/html", headers["accept"])
 	assert.False(t, done)
 
-	data = []byte("Host: localhost:8080\r\n\r\n")
+	data = []byte("Accept: application/json\r\n\r\n")
 	_, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "localhost:42069, localhost:8080", headers["host"])
+	assert.Equal(t, "text/html, application/json", headers["accept"])
 	assert.False(t, done)
 }

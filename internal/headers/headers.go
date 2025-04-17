@@ -57,6 +57,9 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	}
 
 	colonSep := bytes.Index(data, []byte(":"))
+	if colonSep == -1 {
+		return 0, false, errors.New("bad request: malformed field name")
+	}
 
 	fieldName := data[:colonSep]
 
@@ -78,9 +81,13 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	fieldValue = bytes.ToLower(fieldValue)
 
 	// Check if header name already exists in the map.
-	// Join multiple header values if header name already exists.
+	// If header name exists but both have different values, join them.
+	// If header names exists but have the same value, reject it.
 	val, ok := h[string(fieldName)]
 	if ok {
+		if string(fieldName) == "host" {
+			return totalBytesRead, false, errors.New("bad request: only one host header allowed")
+		}
 		h[string(fieldName)] = fmt.Sprintf("%s, %s", val, fieldValue)
 	} else {
 		h[string(fieldName)] = string(fieldValue)
