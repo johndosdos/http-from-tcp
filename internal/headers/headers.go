@@ -57,7 +57,8 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 		Return true to signal successful parsing.
 	*/
 	if bytesRead == 0 {
-		return bytesRead, true, nil
+		totalBytesRead += len(crlf)
+		return totalBytesRead, true, nil
 	}
 
 	colonSep := bytes.Index(data, []byte(":"))
