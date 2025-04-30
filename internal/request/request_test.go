@@ -135,3 +135,68 @@ func TestRequestFromReader_Headers(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, req)
 }
+
+func TestRequestBody(t *testing.T) {
+	// Test: Standard body
+	reader := &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 13\r\n" +
+			"\r\n" +
+			"hello world!\n",
+		numBytesPerRead: 3,
+	}
+
+	req, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, "hello world!\n", string(req.Body))
+
+	// Test: Body shorter than reported content length
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 20\r\n" +
+			"\r\n" +
+			"partial content",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.Error(t, err)
+
+	// Test: Empty body without content-length
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+
+	// Test: Empty body with content-length
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 0\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, "0", req.Headers.Get("content-length"))
+
+	// Test: No content-length but body exists
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"\r\n" +
+			"hello world!\n",
+		numBytesPerRead: 3,
+	}
+	req, err = RequestFromReader(reader)
+	require.Error(t, err)
+	require.Nil(t, req)
+}

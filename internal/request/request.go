@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -14,6 +15,7 @@ import (
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	State       State
 }
 
@@ -29,6 +31,7 @@ const (
 	INITIALIZED = iota
 	DONE
 	REQUEST_STATE_PARSING_HEADERS
+	REQUEST_STATE_PARSING_BODY
 )
 
 const NUM_PARTS_REQ_LINE int = 3
@@ -52,12 +55,12 @@ func (r *Request) Parse(data []byte) (int, error) {
 		r.State = REQUEST_STATE_PARSING_HEADERS
 		return bytesRead, nil
 	case REQUEST_STATE_PARSING_HEADERS:
-		totalBytesParsed := 0
-		isHeaderDone := false
-
 		if r.Headers == nil {
 			r.Headers = headers.NewHeaders()
 		}
+
+		totalBytesParsed := 0
+		isHeaderDone := false
 
 		for !isHeaderDone {
 			bytesParsed, done, err := r.Headers.Parse(data[totalBytesParsed:])
@@ -73,8 +76,36 @@ func (r *Request) Parse(data []byte) (int, error) {
 			totalBytesParsed += bytesParsed
 		}
 
-		r.State = DONE
+		r.State = REQUEST_STATE_PARSING_BODY
 		return totalBytesParsed, nil
+	case REQUEST_STATE_PARSING_BODY:
+		contentLength := r.Headers.Get("content-length")
+		if contentLength == "" {
+			return 0, fmt.Errorf("missing Content-Length header")
+		}
+
+		contentLengthInt, err := strconv.Atoi(contentLength)
+		if err != nil || contentLengthInt < 0 {
+			return 0, fmt.Errorf("invalid Content-Length: %w", err)
+		}
+
+		bodyLen := len(r.Body)
+		remaining := contentLengthInt - bodyLen
+		available := len(data)
+		needed := available
+
+		if remaining < available {
+			needed = remaining
+		}
+
+		r.Body = append(r.Body, data[:needed]...)
+		bodyLen = len(r.Body)
+
+		if bodyLen == contentLengthInt {
+			r.State = DONE
+		}
+
+		return needed, nil
 	case DONE:
 		return 0, errors.New("error: trying to read data in 'done' state")
 	}
@@ -84,7 +115,7 @@ func (r *Request) Parse(data []byte) (int, error) {
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	// Track how many bytes have we read from the io.Reader (request data) into
-	// the buffer.
+	// the buffer
 	bytesInBuffer := 0
 
 	request := &Request{
@@ -108,7 +139,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		}
 
 		bytesInBuffer += bytesRead
-
 		bytesParsed, err := request.Parse(buffer[:bytesInBuffer])
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse request data: %w", err)
@@ -118,23 +148,22 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		bytesInBuffer -= bytesParsed
 	}
 
+	// Check for body length and content-length mismatch.
+	contentLength := request.Headers.Get("content-length")
+	if contentLength != "" {
+		contentLengthInt, err := strconv.Atoi(contentLength)
+		bodyLen := len(request.Body)
+
+		if err != nil || contentLengthInt < 0 {
+			return nil, fmt.Errorf("invalid content-length: %v", err)
+		}
+
+		if bodyLen < contentLengthInt {
+			return nil, fmt.Errorf("body length and content-length mismatch: expected %d, got %d", contentLengthInt, bodyLen)
+		}
+	}
+
 	return request, nil
-	/*
-		 	requestData, err := io.ReadAll(reader)
-			if err != nil {
-				return nil, fmt.Errorf("unable to read contents to memory: %w", err)
-			}
-
-			requestLine, bytesRead, err := parseRequestLine(requestData)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse request-line: %w", err)
-			}
-
-			return &Request{
-				RequestLine: *requestLine,
-				State:       initialized,
-			}, nil
-	*/
 }
 
 func parseRequestLine(requestData []byte) (*RequestLine, int, error) {
