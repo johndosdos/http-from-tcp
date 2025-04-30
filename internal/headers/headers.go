@@ -8,6 +8,10 @@ import (
 
 type Headers map[string]string
 
+func (h Headers) Get(key string) string {
+	return h[key]
+}
+
 func (h Headers) Parse(data []byte) (int, bool, error) {
 	/*
 		field-line = field-name ":" OWS field-value OWS
