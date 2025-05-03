@@ -44,6 +44,9 @@ func main() {
 			fmt.Printf("- %v: %v\n", key, value)
 		}
 
+		fmt.Println("Body:")
+		fmt.Printf("%s", string(req.Body))
+
 		fmt.Printf("\n...CONNECTION CLOSED\n")
 	}
 	/* 	file, err := os.Open("messages.txt")
