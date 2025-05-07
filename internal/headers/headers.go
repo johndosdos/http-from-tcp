@@ -3,13 +3,24 @@ package headers
 import (
 	"bytes"
 	"errors"
-	"fmt"
+	"strings"
 )
 
 type Headers map[string]string
 
 func (h Headers) Get(key string) string {
 	return h[key]
+}
+
+func (h Headers) Set(key, value string) {
+	// Check if header name already exists in the map.
+	// If header name exists but both have different values, join them.
+	v, ok := h[key]
+	if ok {
+		value = strings.Join([]string{v, value}, ", ")
+	}
+
+	h[key] = value
 }
 
 func (h Headers) Parse(data []byte) (int, bool, error) {
@@ -85,18 +96,15 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 	fieldName = bytes.ToLower(fieldName)
 	fieldValue = bytes.ToLower(fieldValue)
 
-	// Check if header name already exists in the map.
-	// If header name exists but both have different values, join them.
-	// If header names exists but have the same value, reject it.
-	val, ok := h[string(fieldName)]
-	if ok {
-		if string(fieldName) == "host" {
-			return totalBytesRead, false, errors.New("bad request: only one host header allowed")
-		}
-		h[string(fieldName)] = fmt.Sprintf("%s, %s", val, fieldValue)
-	} else {
-		h[string(fieldName)] = string(fieldValue)
+	fieldNameStr := string(fieldName)
+	fieldValueStr := string(fieldValue)
+
+	// If header name exists but have the same value, reject it.
+	if _, ok := h[fieldNameStr]; ok && fieldNameStr == "host" {
+		return totalBytesRead, false, errors.New("bad request: only one host header allowed")
 	}
+
+	h.Set(fieldNameStr, fieldValueStr)
 
 	totalBytesRead = bytesRead + len(crlf)
 
