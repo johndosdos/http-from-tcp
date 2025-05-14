@@ -72,7 +72,12 @@ func (r *Request) Parse(data []byte) (int, error) {
 			totalBytesParsed += bytesParsed
 		}
 
-		r.State = REQUEST_STATE_PARSING_BODY
+		if len(r.Body) == 0 {
+			r.State = DONE
+		} else {
+			r.State = REQUEST_STATE_PARSING_BODY
+		}
+
 		return totalBytesParsed, nil
 	case REQUEST_STATE_PARSING_BODY:
 		contentLength := r.Headers.Get("content-length")
