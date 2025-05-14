@@ -55,10 +55,6 @@ func (r *Request) Parse(data []byte) (int, error) {
 		r.State = REQUEST_STATE_PARSING_HEADERS
 		return bytesRead, nil
 	case REQUEST_STATE_PARSING_HEADERS:
-		if r.Headers == nil {
-			r.Headers = headers.NewHeaders()
-		}
-
 		totalBytesParsed := 0
 		isHeaderDone := false
 
@@ -114,13 +110,16 @@ func (r *Request) Parse(data []byte) (int, error) {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
+	request := &Request{
+		State:   INITIALIZED,
+		Headers: headers.NewHeaders(),
+		Body:    make([]byte, 0),
+	}
+
 	// Track how many bytes have we read from the io.Reader (request data) into
 	// the buffer
 	bytesInBuffer := 0
 
-	request := &Request{
-		State: INITIALIZED,
-	}
 
 	buffer := make([]byte, BUFFER_SIZE)
 
