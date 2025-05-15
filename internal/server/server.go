@@ -96,14 +96,43 @@ func (s *Server) Listen() {
 func (s *Server) Handle(conn net.Conn) {
 	defer conn.Close()
 
-	headers := response.GetDefaultHeaders(0)
-	err := response.WriteStatusLine(conn, response.StatusOK)
+	parsedReq, err := request.RequestFromReader(conn)
+	if err != nil {
+
+		handlerError := &HandlerError{
+			StatusCode: response.StatusBadRequest,
+			Message:    err.Error(),
+		}
+		handlerError.Write(conn)
+		return
+	}
+
+	var buffer bytes.Buffer
+
+	handlerErr := s.handler(&buffer, parsedReq)
+	if handlerErr != nil {
+		handlerErr.Write(conn)
+		return
+	}
+
+	contentLength := buffer.Len()
+	headers := response.GetDefaultHeaders(contentLength)
+
+	err = response.WriteStatusLine(conn, response.StatusOK)
 	if err != nil {
 		log.Printf("error writing status line: %v", err)
+		return
 	}
 
 	err = response.WriteHeaders(conn, headers)
 	if err != nil {
 		log.Printf("error writing headers field: %v", err)
+		return
+	}
+
+	_, err = conn.Write(buffer.Bytes())
+	if err != nil {
+		log.Println(err)
+		return
 	}
 }
