@@ -121,14 +121,24 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		Body:    make([]byte, 0),
 	}
 
+	buffer := make([]byte, BUFFER_SIZE)
 	// Track how many bytes have we read from the io.Reader (request data) into
 	// the buffer
 	bytesInBuffer := 0
 
+	for {
+		bytesParsed, err := request.Parse(buffer[:bytesInBuffer])
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse request data: %w", err)
+		}
 
-	buffer := make([]byte, BUFFER_SIZE)
+		copy(buffer[0:], buffer[bytesParsed:bytesInBuffer])
+		bytesInBuffer -= bytesParsed
 
-	for request.State != DONE {
+		if request.State == DONE {
+			break
+		}
+
 		if bytesInBuffer == cap(buffer) {
 			newBuffer := make([]byte, cap(buffer)*2)
 			copy(newBuffer, buffer[:bytesInBuffer])
@@ -138,18 +148,14 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		bytesRead, err := reader.Read(buffer[bytesInBuffer:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				if request.State != DONE {
+					return nil, fmt.Errorf("incomplete request, in %v state, read %v bytes.", request.State, bytesRead)
+				}
 				break
 			}
 		}
 
 		bytesInBuffer += bytesRead
-		bytesParsed, err := request.Parse(buffer[:bytesInBuffer])
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse request data: %w", err)
-		}
-
-		copy(buffer[0:], buffer[bytesParsed:bytesInBuffer])
-		bytesInBuffer -= bytesParsed
 	}
 
 	// Check for body length and content-length mismatch.
