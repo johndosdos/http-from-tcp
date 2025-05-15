@@ -207,7 +207,12 @@ func parseRequestLine(requestData []byte) (*RequestLine, int, error) {
 
 	// Extract request-line from the HTTP message.
 	requestLine := requestData[:bytesRead]
-	parts := bytes.Split(requestLine, []byte(" "))
+	parts := bytes.Fields(requestLine)
+
+	if len(parts) != NUM_PARTS_REQ_LINE {
+		return nil, 0, fmt.Errorf("invalid request line: expected 3 parts, got %d", len(parts))
+	}
+
 	reqMethod := parts[0]
 	reqTarget := parts[1]
 	reqHTTPVersion := parts[2]
