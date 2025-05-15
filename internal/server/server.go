@@ -71,15 +71,8 @@ func Serve(port int, handler Handler) (*Server, error) {
 }
 
 func (s *Server) Close() error {
-	if !s.isClosed.Load() {
-		err := s.listener.Close()
-		if err != nil {
-			return fmt.Errorf("there's a problem closing the server: %w", err)
-		}
-	}
 	s.isClosed.Store(true)
-
-	return nil
+	return s.listener.Close()
 }
 
 func (s *Server) Listen() {
@@ -90,10 +83,10 @@ func (s *Server) Listen() {
 		if err != nil {
 			if s.isClosed.Load() {
 				log.Printf("server closed, stopped listening: %v", err)
-				break
+				return
 			} else {
 				log.Printf("error accepting connection: %v", err)
-				break
+				continue
 			}
 		}
 		go s.Handle(conn)
