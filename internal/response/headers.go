@@ -1,37 +1,29 @@
 package response
 
 import (
+	"errors"
 	"fmt"
-	"io"
-	"strconv"
 
 	"github.com/johndosdos/http-from-tcp/internal/headers"
 )
 
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	h := headers.NewHeaders()
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.State != stateWrittenStatusLine {
+		return errors.New("status line must be written before writing headers")
+	}
 
-	contentLenStr := strconv.Itoa(contentLen)
-
-	h.Set("Content-Length", contentLenStr)
-	h.Set("Connection", "close")
-	h.Set("Content-Type", "text/plain")
-
-	return h
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	crlf := []byte("\r\n")
 
 	for k, v := range headers {
 		headerLine := fmt.Sprintf("%v: %v\r\n", k, v)
-		_, err := w.Write([]byte(headerLine))
+		_, err := w.Writer.Write([]byte(headerLine))
 		if err != nil {
 			return err
 		}
 	}
 
 	// Write CRLF to end the headers section
-	_, err := w.Write(crlf)
+	_, err := w.Writer.Write(crlf)
+	w.State = stateWrittenHeaders
 	return err
 }
