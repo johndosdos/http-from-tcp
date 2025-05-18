@@ -109,34 +109,4 @@ func (s *Server) Handle(conn net.Conn) {
 	}
 
 	s.handler(&w, parsedReq)
-
-	/*
-		 	var buffer bytes.Buffer
-
-			err = w.WriteStatusLine(response.StatusOK)
-			if err != nil {
-				log.Printf("failed to write status-line to conn: %v", err)
-				return
-			}
-
-			contentLength := buffer.Len()
-			contentLengthStr := strconv.Itoa(contentLength)
-
-			h := headers.NewHeaders()
-			h.Set("Content-Length", contentLengthStr)
-			h.Set("Connection", "close")
-			h.Set("Content-Type", "text/html")
-
-			err = w.WriteHeaders(h)
-			if err != nil {
-				log.Printf("error writing headers field: %v", err)
-				return
-			}
-
-			_, err = w.WriteBody(buffer.Bytes())
-			if err != nil {
-				log.Println(err)
-				return
-			}
-	*/
 }
