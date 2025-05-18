@@ -96,43 +96,47 @@ func (s *Server) Listen() {
 func (s *Server) Handle(conn net.Conn) {
 	defer conn.Close()
 
+	w := response.NewWriter(conn)
+
 	parsedReq, err := request.RequestFromReader(conn)
 	if err != nil {
-
 		handlerError := &HandlerError{
 			StatusCode: response.StatusBadRequest,
 			Message:    err.Error(),
 		}
-		handlerError.Write(conn)
+		handlerError.Write(&w)
 		return
 	}
 
-	var buffer bytes.Buffer
+	s.handler(&w, parsedReq)
 
-	handlerErr := s.handler(&buffer, parsedReq)
-	if handlerErr != nil {
-		handlerErr.Write(conn)
-		return
-	}
+	/*
+		 	var buffer bytes.Buffer
 
-	contentLength := buffer.Len()
-	headers := response.GetDefaultHeaders(contentLength)
+			err = w.WriteStatusLine(response.StatusOK)
+			if err != nil {
+				log.Printf("failed to write status-line to conn: %v", err)
+				return
+			}
 
-	err = response.WriteStatusLine(conn, response.StatusOK)
-	if err != nil {
-		log.Printf("error writing status line: %v", err)
-		return
-	}
+			contentLength := buffer.Len()
+			contentLengthStr := strconv.Itoa(contentLength)
 
-	err = response.WriteHeaders(conn, headers)
-	if err != nil {
-		log.Printf("error writing headers field: %v", err)
-		return
-	}
+			h := headers.NewHeaders()
+			h.Set("Content-Length", contentLengthStr)
+			h.Set("Connection", "close")
+			h.Set("Content-Type", "text/html")
 
-	_, err = conn.Write(buffer.Bytes())
-	if err != nil {
-		log.Println(err)
-		return
-	}
+			err = w.WriteHeaders(h)
+			if err != nil {
+				log.Printf("error writing headers field: %v", err)
+				return
+			}
+
+			_, err = w.WriteBody(buffer.Bytes())
+			if err != nil {
+				log.Println(err)
+				return
+			}
+	*/
 }
