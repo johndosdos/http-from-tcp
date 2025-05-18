@@ -1,8 +1,8 @@
 package response
 
 import (
+	"errors"
 	"fmt"
-	"io"
 )
 
 type StatusCode string
@@ -13,7 +13,11 @@ const (
 	StatusInternalServerError StatusCode = "500"
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+	if w.State != stateInit {
+		return errors.New("status line has already been written")
+	}
+
 	reasonPhrase := ""
 
 	switch statusCode {
@@ -26,6 +30,9 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	}
 
 	statusLine := fmt.Sprintf("HTTP/1.1 %v %v\r\n", statusCode, reasonPhrase)
-	_, err := w.Write([]byte(statusLine))
+	_, err := w.Writer.Write([]byte(statusLine))
+
+	w.State = stateWrittenStatusLine
+
 	return err
 }
