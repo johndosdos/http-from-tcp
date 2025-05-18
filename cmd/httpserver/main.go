@@ -33,8 +33,8 @@ func handlerRequest(w *response.Writer, req *request.Request) {
 	h.Set("Content-Type", "text/html")
 	h.Set("Connection", "close")
 
-	switch req.RequestLine.RequestTarget {
-	case "/yourproblem":
+	switch {
+	case req.RequestLine.RequestTarget == "/yourproblem":
 		err := w.WriteStatusLine(response.StatusBadRequest)
 		if err != nil {
 			log.Printf("failed to write status line to conn: %v", err)
@@ -62,7 +62,7 @@ func handlerRequest(w *response.Writer, req *request.Request) {
 			return
 		}
 
-	case "/myproblem":
+	case req.RequestLine.RequestTarget == "/myproblem":
 		err := w.WriteStatusLine(response.StatusInternalServerError)
 		if err != nil {
 			log.Printf("failed to write status line to conn: %v", err)
