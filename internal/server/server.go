@@ -3,11 +3,11 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync/atomic"
 
+	"github.com/johndosdos/http-from-tcp/internal/headers"
 	"github.com/johndosdos/http-from-tcp/internal/request"
 	"github.com/johndosdos/http-from-tcp/internal/response"
 )
@@ -19,10 +19,10 @@ type HandlerError struct {
 	Message    string
 }
 
-func (he *HandlerError) Write(w io.Writer) {
-	err := response.WriteStatusLine(w, he.StatusCode)
+func (he *HandlerError) Write(w *response.Writer) {
+	err := w.WriteStatusLine(he.StatusCode)
 	if err != nil {
-		fmt.Printf("failed to write status-line: %v", err)
+		log.Printf("failed to write error to conn: %v", err)
 		return
 	}
 
@@ -30,21 +30,21 @@ func (he *HandlerError) Write(w io.Writer) {
 
 	_, err = buffer.WriteString(he.Message)
 	if err != nil {
-		fmt.Printf("failed to write message to buffer: %v", err)
+		log.Printf("failed to write message to buffer: %v", err)
 		return
 	}
 
-	h := response.GetDefaultHeaders(buffer.Len())
+	h := headers.NewHeaders()
 
-	err = response.WriteHeaders(w, h)
+	err = w.WriteHeaders(h)
 	if err != nil {
-		fmt.Printf("failed to write headers: %v", err)
+		log.Printf("failed to write headers to conn: %v", err)
 		return
 	}
 
-	_, err = w.Write(buffer.Bytes())
+	_, err = w.Writer.Write(buffer.Bytes())
 	if err != nil {
-		fmt.Printf("failed to write response to conn: %v", err)
+		log.Printf("failed to write response to conn: %v", err)
 		return
 	}
 }
