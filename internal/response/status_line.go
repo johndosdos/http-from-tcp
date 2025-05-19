@@ -5,15 +5,13 @@ import (
 	"fmt"
 )
 
-type StatusCode string
-
 const (
-	StatusOK                  StatusCode = "200"
-	StatusBadRequest          StatusCode = "400"
-	StatusInternalServerError StatusCode = "500"
+	StatusOK                  string = "200"
+	StatusBadRequest          string = "400"
+	StatusInternalServerError string = "500"
 )
 
-func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+func (w *Writer) WriteStatusLine(statusCode string) error {
 	if w.State != stateInit {
 		return errors.New("status line has already been written")
 	}

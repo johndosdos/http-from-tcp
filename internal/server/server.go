@@ -15,7 +15,7 @@ import (
 type Handler func(w *response.Writer, req *request.Request)
 
 type HandlerError struct {
-	StatusCode response.StatusCode
+	StatusCode string
 	Message    string
 }
 

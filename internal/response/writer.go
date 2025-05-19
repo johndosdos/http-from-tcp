@@ -5,11 +5,9 @@ import (
 	"net"
 )
 
-type writerState int
-
 type Writer struct {
 	Writer io.Writer
-	State  writerState
+	State  int
 }
 
 const (
