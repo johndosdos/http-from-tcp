@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/johndosdos/http-from-tcp/internal/headers"
 )
 
 func (w *Writer) WriteBody(data []byte) (int, error) {
@@ -51,11 +53,21 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 
 	totalBytesWritten += n
 
-	// Write final CRLF
-	n, err = w.Writer.Write([]byte("\r\n"))
-	if err != nil {
-		return 0, err
+	return totalBytesWritten + n, nil
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	crlf := []byte("\r\n")
+
+	for k, v := range h {
+		headerLine := fmt.Sprintf("%v: %v\r\n", k, v)
+		_, err := w.Writer.Write([]byte(headerLine))
+		if err != nil {
+			return err
+		}
 	}
 
-	return totalBytesWritten + n, nil
+	// Write CRLF to end the trailers section
+	_, err := w.Writer.Write(crlf)
+	return err
 }
