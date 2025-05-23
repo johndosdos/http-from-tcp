@@ -1,14 +1,9 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -95,81 +90,8 @@ func handlerRequest(w *response.Writer, req *request.Request) {
 			return
 		}
 
-	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/stream"):
-		parts := strings.Split(req.RequestLine.RequestTarget, "/")
-
-		// We only want 4 parts right now; SP, httpbin, stream, and n. Return error if parts length is < 4.
-		// SP = single space.
-		if len(parts) < 4 {
-			log.Printf("invalid request endpoint: %v", req.RequestLine.RequestTarget)
-			return
-		}
-
-		// The last part should be n, where n is the number of requested JSON streams.
-		numStreams, err := strconv.Atoi(parts[3])
-		if err != nil {
-			log.Printf("string to int conversion error: %v", err)
-			return
-		}
-
-		url := fmt.Sprintf("https://httpbin.org/stream/%d", numStreams)
-
-		// We serve as a proxy to the origin server.
-		resp, err := http.Get(url)
-		if err != nil {
-			log.Printf("failed to make request to %v: %v", url, err)
-			return
-		}
-
-		defer resp.Body.Close()
-
-		// Write status line back to client.
-		err = w.WriteStatusLine(resp.Status)
-		if err != nil {
-			log.Printf("failed to write status line to conn: %v", err)
-			return
-		}
-
-		// Write headers back to client.
-		for key, values := range resp.Header {
-			for _, value := range values {
-				h.Set(key, value)
-			}
-		}
-
-		// Manually set Transfer-Encoding header
-		h.Set("Transfer-Encoding", "chunked")
-
-		err = w.WriteHeaders(h)
-		if err != nil {
-			log.Printf("failed to write headers to conn: %v", err)
-			return
-		}
-
-		// Forward chunked data back to client.
-		data := make([]byte, 1024)
-
-		for {
-			readBytes, err := resp.Body.Read(data)
-			if readBytes > 0 {
-				_, err = w.WriteChunkedBody(data[:readBytes])
-				if err != nil {
-					log.Printf("%v", err)
-					return
-				}
-			}
-
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-
-				log.Printf("failed to read response body into p: %v", err)
-				return
-			}
-		}
-
-		_, err = w.WriteChunkedBodyDone()
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
+		err := response.HandlerProxy(w, req, h)
 		if err != nil {
 			log.Printf("%v", err)
 			return
